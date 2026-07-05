@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>dev.mongo</string>
+
+    <key>WorkingDirectory</key>
+    <string>{{INSTALL_DIR}}</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/zsh</string>
+        <string>{{INSTALL_DIR}}/launchd-start.sh</string>
+    </array>
+
+    <!-- 登录自动运行 -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- 日志输出到项目目录，方便排错 -->
+    <key>StandardOutPath</key>
+    <string>{{INSTALL_DIR}}/launchd-out.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{INSTALL_DIR}}/launchd-err.log</string>
+
+    <!-- launchd 默认 PATH 不含 homebrew，需要显式指定 -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <!-- 容器崩溃自动重启 -->
+    <key>KeepAlive</key>
+    <false/>
+</dict>
+</plist>
