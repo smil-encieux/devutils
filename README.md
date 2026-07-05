@@ -1,29 +1,55 @@
 # mongo-podman-dev
 
-macOS ARM64 本地 MongoDB 4.4 开发环境，基于 Podman Compose，支持 launchd 开机自启。
+Claude Code skill — 在 macOS ARM64 上通过 Podman Compose 搭建本地 MongoDB 4.4 开发环境，并配置 launchd 开机自启。
 
-同时是一个 Claude Code [skill](.claude/skills/mongo-podman-dev/SKILL.md)——在 Claude Code 中提及 "搭建 mongo 本地环境" 即可自动触发。
+## 安装
 
-## 前置条件
+### 方式一：从 GitHub 安装
 
-- macOS ARM64 (Apple Silicon)
-- [Podman](https://podman.io/) + `podman-compose`：`brew install podman podman-compose`
-- Podman machine 已初始化：`podman machine init && podman machine start`
+```shell
+claude mcp skills install qifan/devutils/mongo-podman-dev
+```
 
-## 快速开始
+### 方式二：本地安装
 
 ```shell
 # 克隆仓库
-git clone <repo-url> mongo-dev && cd mongo-dev
+git clone <repo-url> devutils
+cd devutils
 
-# 启动
-podman-compose up -d
-
-# 验证
-podman ps --filter name=local-mongo-dev
+# 安装 skill
+mkdir -p ~/.claude/skills
+cp -r skills/mongo-podman-dev ~/.claude/skills/mongo-podman-dev
 ```
 
-连接信息：
+安装完成后重启 Claude Code 即可生效。
+
+## 使用
+
+在 Claude Code 中，用自然语言触发：
+
+```
+搭建 mongo 本地环境
+```
+
+或者：
+
+```
+帮我用 Podman 起一个本地 MongoDB
+```
+
+Skill 会自动执行以下步骤：
+
+1. **环境检查** — 验证 macOS ARM64、podman、podman-compose 是否就绪
+2. **选择安装目录** — 默认 `/Users/$USER/devutils/mongo_dev`
+3. **写入项目文件** — Dockerfile、compose.yaml、mongod.conf、初始化脚本等
+4. **构建并启动** — `podman-compose up -d`
+5. **配置开机自启** — 安装 launchd plist
+6. **输出连接信息**
+
+## 连接信息
+
+启动完成后，MongoDB 可通过以下方式连接：
 
 ```
 mongodb://dev:123456@127.0.0.1:27017/dev_db?authSource=dev_db
@@ -34,33 +60,28 @@ mongodb://dev:123456@127.0.0.1:27017/dev_db?authSource=dev_db
 | `dev` | `123456` | `dev_db` | readWrite |
 | `root` | `root123` | `admin` | root |
 
+## 前置条件
+
+- macOS ARM64 (Apple Silicon)
+- [Podman](https://podman.io/) + `podman-compose`：
+  ```shell
+  brew install podman podman-compose
+  podman machine init && podman machine start
+  ```
+
 ## 文件结构
 
 ```
-├── Dockerfile              # 基于 mongo:4.4，打入配置和初始化脚本
-├── compose.yaml            # 端口 27017，数据挂载到 ./podman_data/
-├── mongod.conf             # 开启认证，日志走 stdout
-├── init/init_dev.js        # 首次启动创建用户和种子数据
-├── launchd-start.sh        # 开机自启脚本（先等 podman machine 就绪）
-├── dev.mongo.plist         # launchd 配置
-└── .claude/skills/         # Claude Code skill（AI 辅助搭建）
+skills/mongo-podman-dev/
+├── SKILL.md                    # Skill 定义（步骤、检查、提示）
+└── templates/
+    ├── Dockerfile              # 基于 mongo:4.4，打入配置和初始化脚本
+    ├── compose.yaml            # 端口 27017，数据挂载到 ./podman_data/
+    ├── mongod.conf             # 开启认证，日志走 stdout
+    ├── init-dev.js             # 首次启动创建用户和种子数据
+    ├── launchd-start.sh        # 开机自启脚本（先等 podman machine 就绪）
+    └── dev.mongo.plist         # launchd 配置
 ```
-
-## 开机自启
-
-```shell
-# 安装
-cp dev.mongo.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/dev.mongo.plist
-
-# 验证
-launchctl list | grep dev.mongo
-
-# 卸载
-launchctl unload ~/Library/LaunchAgents/dev.mongo.plist
-```
-
-自启脚本 `launchd-start.sh` 会先执行 `podman machine start`（幂等，已运行则跳过），等待 socket 就绪后再拉起容器。
 
 ## 踩坑记录
 
