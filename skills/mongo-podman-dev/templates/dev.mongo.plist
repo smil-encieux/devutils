@@ -31,7 +31,8 @@
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
     </dict>
 
-    <!-- 容器崩溃自动重启 -->
+    <!-- 脚本执行完即退出，不由 launchd 常驻拉起；
+         容器自身崩溃由 compose 的 restart: unless-stopped 兜底 -->
     <key>KeepAlive</key>
     <false/>
 </dict>

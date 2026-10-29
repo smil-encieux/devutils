@@ -75,9 +75,8 @@ mongodb://dev:123456@127.0.0.1:27017/dev_db?authSource=dev_db
 skills/mongo-podman-dev/
 ├── SKILL.md                    # Skill 定义（步骤、检查、提示）
 └── templates/
-    ├── Dockerfile              # 基于 mongo:4.4，打入配置和初始化脚本
-    ├── compose.yaml            # 端口 27017，数据挂载到 ./podman_data/
-    ├── mongod.conf             # 开启认证，日志走 stdout
+    ├── Dockerfile              # 基于 mongo:4.4，打入初始化脚本，命令行参数启动
+    ├── compose.yaml            # 端口 27017，数据挂载到 ./podman_data/，含健康检查
     ├── init-dev.js             # 首次启动创建用户和种子数据
     ├── launchd-start.sh        # 开机自启脚本（先等 podman machine 就绪）
     └── dev.mongo.plist         # launchd 配置
@@ -108,3 +107,11 @@ launchd 不 source shell profile，`PATH` 不含 `/opt/homebrew/bin`，导致 `p
 ### Volume 日志目录权限
 
 macOS 文件系统通过 Podman VM 共享给容器，容器内 mongodb 用户 (UID 999) 无法写入。两种解法：`chmod 777` 目录，或不用文件日志走 stdout（本项目采用后者）。
+
+### --config 触发 entrypoint 崩溃循环
+
+`CMD ["mongod", "--config", ...]` 会让 docker-entrypoint.sh 把配置解析结果先写入 `/tmp/docker-entrypoint-config.json`（root 身份），gosu 切换到 mongodb 用户后的第二遍执行要覆写它。一旦该文件残留为 root 属主（例如曾以 root 身份 exec 过 entrypoint），覆写失败 → `Permission denied` → entrypoint exit 1 → `restart: unless-stopped` 无限崩溃循环，且 `podman ps` 会闪现 `Up` 掩盖故障，可能长期无人发现。解决：不用配置文件，全部改命令行参数（`mongod --auth --bind_ip_all --port 27017 --dbpath /data/db`）——entrypoint 的 `_parse_config` 只在有 `--config` 时才执行。
+
+### 验证要用真实连接而非 podman ps
+
+容器状态 `Up` 不代表 mongod 就绪：崩溃循环中也会闪现 `Up`。compose 中的 healthcheck 用带认证的 `ping` 命令做真实查询，SKILL 的验证步骤同理。

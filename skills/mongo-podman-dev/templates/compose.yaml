@@ -1,4 +1,3 @@
-
 services:
   mongo:
     build:
@@ -13,6 +12,13 @@ services:
     environment:
       TZ: Asia/Shanghai
     restart: unless-stopped
+    healthcheck:
+      # 真实认证查询：崩溃循环中 podman ps 也会闪现 Up，只有 ping 通过才算就绪
+      test: ["CMD", "mongo", "--quiet", "-u", "dev", "-p", "123456", "--authenticationDatabase", "dev_db", "--eval", "quit(db.runCommand({ping:1}).ok === 1 ? 0 : 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     deploy:
       resources:
         limits:

@@ -43,14 +43,13 @@ Create `$INSTALL_DIR/init/`. Then, for each template in `templates/`, substitute
 |----------|-------------|---------------|
 | `Dockerfile` | `$INSTALL_DIR/Dockerfile` | none |
 | `compose.yaml` | `$INSTALL_DIR/compose.yaml` | none |
-| `mongod.conf` | `$INSTALL_DIR/mongod.conf` | none |
 | `init-dev.js` | `$INSTALL_DIR/init/init_dev.js` | none |
 | `launchd-start.sh` | `$INSTALL_DIR/launchd-start.sh` | `{{INSTALL_DIR}}`, `{{PODMAN}}`, `{{PODMAN_COMPOSE}}` |
 | `dev.mongo.plist` | `$INSTALL_DIR/dev.mongo.plist` | `{{INSTALL_DIR}}` |
 
 After writing, `chmod +x $INSTALL_DIR/launchd-start.sh`.
 
-**Completion**: all 6 files written with correct paths, `launchd-start.sh` is executable.
+**Completion**: all 5 files written with correct paths, `launchd-start.sh` is executable.
 
 ### 4. Build and start
 
@@ -58,11 +57,22 @@ After writing, `chmod +x $INSTALL_DIR/launchd-start.sh`.
 cd $INSTALL_DIR && podman-compose up -d
 ```
 
-Wait 5 seconds, then verify: `podman ps --filter name=local-mongo-dev` shows the container with status `Up`.
+Verify with a real authenticated query — do NOT rely on `podman ps` showing `Up`: a crash-looping container flaps through `Up` states between restarts, and its logs can look benign in the tail. Retry up to 30 times, 2s apart:
+
+```shell
+for i in {1..30}; do
+  podman exec local-mongo-dev mongo --quiet -u dev -p 123456 \
+    --authenticationDatabase dev_db \
+    --eval 'quit(db.runCommand({ping:1}).ok === 1 ? 0 : 1)' 2>/dev/null && break
+  sleep 2
+done
+```
+
+After the ping succeeds, confirm stability: `podman logs --tail 5 local-mongo-dev` shows `Waiting for connections`, and `podman inspect local-mongo-dev --format '{{.RestartCount}}'` is not growing. The compose file's healthcheck also turns `podman ps` status into `(healthy)` once the first check passes.
 
 If it fails, check logs: `podman logs local-mongo-dev`.
 
-**Completion**: `local-mongo-dev` is running with no fatal errors in logs.
+**Completion**: authenticated ping succeeds, logs show `Waiting for connections`, restart count stable.
 
 ### 5. Install launchd auto-start
 
